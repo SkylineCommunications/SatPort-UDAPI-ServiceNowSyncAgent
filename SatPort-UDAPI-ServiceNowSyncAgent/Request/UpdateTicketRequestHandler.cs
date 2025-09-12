@@ -71,6 +71,11 @@
 				}
 
 				var ticket = Helper.Tickets.Read(TicketExposers.ExternalIdentifiers.ExternalId.Equal(IncidentId)).FirstOrDefault();
+				if(ticket == null)
+				{
+					throw new Exception($"Ticket for IncidentID {IncidentId} not found.");
+				}
+
 				ticket.Status = parsedState;
 				Helper.Tickets.Update(ticket);
 
