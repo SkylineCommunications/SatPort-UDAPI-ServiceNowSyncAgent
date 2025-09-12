@@ -1,15 +1,14 @@
-﻿using System;
-
-namespace SatPortUDAPIServiceNowSyncAgent.Request
+﻿namespace Skyline.Automation.SatPort.Request
 {
+	using System;
 	using System.Linq;
-	using Newtonsoft.Json;
-	using SatPortUDAPIServiceNowSyncAgent.DataModel;
+	using Skyline.Automation.SatPort.DataModel;
 	using Skyline.DataMiner.Net.Apps.UserDefinableApis;
 	using Skyline.DataMiner.Net.Apps.UserDefinableApis.Actions;
 	using Skyline.DataMiner.Net.Messages.SLDataGateway;
 	using Skyline.DataMiner.SDM.Ticketing;
 	using Skyline.DataMiner.SDM.Ticketing.Models;
+	using Skyline.DataMiner.Utils.SecureCoding.SecureSerialization.Json.Newtonsoft;
 
 	public sealed class UpdateTicketRequestHandler : RequestHandler
 	{
@@ -23,25 +22,38 @@ namespace SatPortUDAPIServiceNowSyncAgent.Request
 
 		public override RequestMethod Method => RequestMethod.Post;
 
-		public override bool Validate(out string reason, out StatusCode statusCode)
+		public override bool ValidateRequest(out string reason, out StatusCode statusCode)
 		{
+			if (!base.ValidateRequest(out reason, out statusCode))
+			{
+				return false;
+			}
+
 			try
 			{
-				DataModel = JsonConvert.DeserializeObject<UpdateTicketDataModel>(Request);
+				DataModel = SecureNewtonsoftDeserialization.DeserializeObject<UpdateTicketDataModel>(Request);
+				if (DataModel is null)
+				{
+					reason = "The request body could not be deserialized into a valid UpdateTicketDataModel.";
+					statusCode = StatusCode.BadRequest;
+					return false;
+				}
 
-				IncidentId = DataModel.IncidentID;
+				IncidentId = DataModel.Number;
 
-				if (!base.Validate(out reason, out statusCode))
+				if (!base.ValidateRequest(out reason, out statusCode))
 				{
 					return false;
 				}
 
-
-				return !(DataModel is null);
+				// Everything looks valid
+				reason = string.Empty;
+				statusCode = StatusCode.Ok;
+				return true;
 			}
 			catch (Exception ex)
 			{
-				reason = $"The request body is not valid. {ex.Message}";
+				reason = $"The request body is not valid JSON or does not match the expected schema. Details: {ex.Message}";
 				statusCode = StatusCode.BadRequest;
 				return false;
 			}
@@ -53,15 +65,13 @@ namespace SatPortUDAPIServiceNowSyncAgent.Request
 
 			try
 			{
-				var ticket = Helper.Tickets.Read(TicketExposers.ID.Equal(DataModel.IncidentID)).First();
-
-				if (!Enum.TryParse<TicketStatus>(DataModel.IncidentState, true, out var parsedState))
+				if (!Enum.TryParse<TicketStatus>(DataModel.State, true, out var parsedState))
 				{
-					throw new InvalidOperationException($"Unable to change the state of the ticket {IncidentId}");
+					throw new InvalidOperationException($"Unable to change the state of the ticket {IncidentId}. The state {DataModel.State} is invalid.");
 				}
 
+				var ticket = Helper.Tickets.Read(TicketExposers.ExternalIdentifiers.ExternalId.Equal(IncidentId)).FirstOrDefault();
 				ticket.Status = parsedState;
-
 				Helper.Tickets.Update(ticket);
 
 				output.ResponseCode = (int)StatusCode.Ok;

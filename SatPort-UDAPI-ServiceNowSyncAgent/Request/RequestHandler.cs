@@ -1,13 +1,10 @@
-﻿namespace SatPortUDAPIServiceNowSyncAgent.Request
+﻿namespace Skyline.Automation.SatPort.Request
 {
 	using System;
-	using System.Linq;
 	using Skyline.DataMiner.Automation;
 	using Skyline.DataMiner.Net.Apps.UserDefinableApis;
 	using Skyline.DataMiner.Net.Apps.UserDefinableApis.Actions;
-	using Skyline.DataMiner.Net.Messages.SLDataGateway;
 	using Skyline.DataMiner.SDM.Ticketing;
-	using Skyline.DataMiner.SDM.Ticketing.Models;
 
 	public abstract class RequestHandler
 	{
@@ -28,13 +25,13 @@
 
 		protected TicketingApiHelper Helper => helper;
 
-		public static RequestHandler InitializeHandlerByMethod(Engine engine, string request, RequestMethod method)
+		public static RequestHandler InitializeHandlerByMethod(Engine engine, ApiTriggerInput requestData)
 		{
 			var ticketingHelper = new TicketingApiHelper(engine.GetUserConnection());
-			switch (method)
+			switch (requestData.RequestMethod)
 			{
 				case RequestMethod.Post:
-					return new UpdateTicketRequestHandler(ticketingHelper, request);
+					return new UpdateTicketRequestHandler(ticketingHelper, requestData.RawBody);
 
 				case RequestMethod.Unspecified:
 				case RequestMethod.Get:
@@ -48,26 +45,16 @@
 			}
 		}
 
-		public virtual bool Validate(out string reason, out StatusCode statusCode)
+		public virtual bool ValidateRequest(out string reason, out StatusCode statusCode)
 		{
-			if (string.IsNullOrWhiteSpace(request))
+			if (string.IsNullOrWhiteSpace(Request))
 			{
-				reason = "The request body is empty.";
+				reason = "The request body is empty";
 				statusCode = StatusCode.BadRequest;
 				return false;
 			}
 
-			// check if the ticket exists
-			var filter = TicketExposers.ID.Equal(IncidentId);
-			var filteredResult = Helper.Tickets.Read(filter).ToList();
-
-			if (!filteredResult.Any())
-			{
-				reason = $"Ticket related to incident ID {IncidentId} is not found";
-				statusCode = StatusCode.NotFound;
-				return false;
-			}
-
+			// Default success
 			reason = string.Empty;
 			statusCode = StatusCode.Ok;
 			return true;

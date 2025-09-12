@@ -5,7 +5,7 @@
 	<Type>Automation</Type>
 	<Author>BHO</Author>
 	<CheckSets>FALSE</CheckSets>
-	<Folder></Folder>
+	<Folder>SatPort/UDAPI</Folder>
 
 	<Protocols>
 	</Protocols>

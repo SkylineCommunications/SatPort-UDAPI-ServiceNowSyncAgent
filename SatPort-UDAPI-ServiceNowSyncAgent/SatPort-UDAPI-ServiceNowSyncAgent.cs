@@ -49,9 +49,9 @@ DATE		VERSION		AUTHOR			COMMENTS
 ****************************************************************************
 */
 
-namespace SatPortUDAPIServiceNowSyncAgent
+namespace Skyline.Automation.SatPort
 {
-	using SatPortUDAPIServiceNowSyncAgent.Request;
+	using Skyline.Automation.SatPort.Request;
 	using Skyline.DataMiner.Automation;
 	using Skyline.DataMiner.Net.Apps.UserDefinableApis;
 	using Skyline.DataMiner.Net.Apps.UserDefinableApis.Actions;
@@ -70,13 +70,9 @@ namespace SatPortUDAPIServiceNowSyncAgent
 		[AutomationEntryPoint(AutomationEntryPointType.Types.OnApiTrigger)]
 		public ApiTriggerOutput OnApiTrigger(Engine engine, ApiTriggerInput requestData)
 		{
-			var method = requestData.RequestMethod;
-			var route = requestData.Route;
-			var body = requestData.RawBody;
-
-			engine.GenerateInformation(body);
-			var handler = RequestHandler.InitializeHandlerByMethod(engine, body, method);
-			if (!handler.Validate(out string reason, out StatusCode statusCode))
+			engine.GenerateInformation($"Received Ticket Update: {requestData.RawBody}");
+			var handler = RequestHandler.InitializeHandlerByMethod(engine, requestData);
+			if (!handler.ValidateRequest(out string reason, out StatusCode statusCode))
 			{
 				return new ApiTriggerOutput
 				{
