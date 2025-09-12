@@ -70,7 +70,7 @@ namespace Skyline.Automation.SatPort
 		[AutomationEntryPoint(AutomationEntryPointType.Types.OnApiTrigger)]
 		public ApiTriggerOutput OnApiTrigger(Engine engine, ApiTriggerInput requestData)
 		{
-			engine.GenerateInformation($"Received Ticket Update: {requestData.RawBody}");
+			engine.GenerateInformation($"Received Ticket Update: {Newtonsoft.Json.JsonConvert.SerializeObject(requestData)}");
 			var handler = RequestHandler.InitializeHandlerByMethod(engine, requestData);
 			if (!handler.ValidateRequest(out string reason, out StatusCode statusCode))
 			{
