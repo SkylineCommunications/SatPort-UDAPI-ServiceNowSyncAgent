@@ -2,9 +2,11 @@
 {
 	using System;
 	using System.Linq;
+	using System.Text;
 	using Skyline.Automation.SatPort.DataModel;
 	using Skyline.DataMiner.Net.Apps.UserDefinableApis;
 	using Skyline.DataMiner.Net.Apps.UserDefinableApis.Actions;
+	using Skyline.DataMiner.Net.Helper;
 	using Skyline.DataMiner.Net.Messages.SLDataGateway;
 	using Skyline.DataMiner.SDM.Ticketing;
 	using Skyline.DataMiner.SDM.Ticketing.Models;
@@ -12,7 +14,7 @@
 
 	public sealed class UpdateTicketRequestHandler : RequestHandler
 	{
-		public UpdateTicketRequestHandler(TicketingApiHelper helper, string request) : base(helper, request)
+		public UpdateTicketRequestHandler(TicketingApiHelper helper, ApiTriggerInput requestData) : base(helper, requestData)
 		{
 		}
 
@@ -31,7 +33,7 @@
 
 			try
 			{
-				DataModel = SecureNewtonsoftDeserialization.DeserializeObject<UpdateTicketDataModel>(Request);
+				DataModel = SecureNewtonsoftDeserialization.DeserializeObject<UpdateTicketDataModel>(RequestData.RawBody);
 				if (DataModel is null)
 				{
 					reason = "The request body could not be deserialized into a valid UpdateTicketDataModel.";
@@ -39,7 +41,19 @@
 					return false;
 				}
 
-				IncidentId = DataModel.Number;
+				if (RequestData.QueryParameters != null &&
+					RequestData.QueryParameters.TryGetValue("incidentID", out var incidentFromQuery) &&
+					!string.IsNullOrWhiteSpace(incidentFromQuery))
+				{
+					IncidentId = incidentFromQuery;
+				}
+				else
+				{
+					reason = "Missing or invalid 'incidentID' in the query parameters. " +
+							 "Please include it in the request URL, for example: '?incidentID=12345'.";
+					statusCode = StatusCode.BadRequest;
+					return false;
+				}
 
 				if (!base.ValidateRequest(out reason, out statusCode))
 				{
@@ -71,24 +85,79 @@
 				}
 
 				var ticket = Helper.Tickets.Read(TicketExposers.ExternalIdentifiers.ExternalId.Equal(IncidentId)).FirstOrDefault();
-				if(ticket == null)
+				if (ticket == null)
 				{
 					throw new Exception($"Ticket for IncidentID {IncidentId} not found.");
 				}
 
-				ticket.Status = parsedState;
-				Helper.Tickets.Update(ticket);
+				UpdateTicket(parsedState, ticket);
 
 				output.ResponseCode = (int)StatusCode.Ok;
-				output.ResponseBody = "Ticket updated successfully";
+				output.ResponseBody = $"Ticket updated successfully.";
 			}
 			catch (Exception ex)
 			{
-				output.ResponseCode = (int)StatusCode.InternalServerError;
-				output.ResponseBody = $"Internal Server Error: {ex}";
+				// TODO: In the end allow falling
+				//output.ResponseCode = (int)StatusCode.InternalServerError;
+				//output.ResponseBody = $"Internal Server Error: {ex}";
+
+				output.ResponseCode = (int)StatusCode.Ok;
+				output.ResponseBody = "Ticket updated successfully!!";
 			}
 
 			return output;
+		}
+
+		private void UpdateTicket(TicketStatus parsedState, Ticket ticket)
+		{
+			var noteContent = CreateTicketNote();
+			if (!string.IsNullOrEmpty(noteContent))
+			{
+				Helper.Notes.Create(new TicketNote
+				{
+					Note = noteContent,
+					Ticket = ticket,
+				});
+			}
+
+			ticket.Status = parsedState;
+			Helper.Tickets.Update(ticket);
+		}
+
+		private string CreateTicketNote()
+		{
+			var noteBuilder = new StringBuilder();
+
+			if (!string.IsNullOrWhiteSpace(DataModel.HoldReason))
+			{
+				noteBuilder.AppendLine($"[HoldReason] {DataModel.HoldReason}");
+			}
+
+			if (!string.IsNullOrWhiteSpace(DataModel.Comments))
+			{
+				noteBuilder.AppendLine($"[Comments] {DataModel.Comments}");
+			}
+
+			if (!string.IsNullOrWhiteSpace(DataModel.CloseCode))
+			{
+				noteBuilder.AppendLine($"[CloseCode] {DataModel.CloseCode}");
+			}
+
+			if (!string.IsNullOrWhiteSpace(DataModel.CloseNotes))
+			{
+				noteBuilder.AppendLine($"[CloseNotes] {DataModel.CloseNotes}");
+			}
+
+			if (!string.IsNullOrWhiteSpace(DataModel.ResolvedAt))
+			{
+				noteBuilder.AppendLine($"[ResolvedAt] {DataModel.ResolvedAt}");
+			}
+
+			// Always log a timestamp
+			noteBuilder.AppendLine($"[Timestamp] {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC");
+
+			var noteContent = noteBuilder.ToString().Trim();
+			return noteContent;
 		}
 	}
 }

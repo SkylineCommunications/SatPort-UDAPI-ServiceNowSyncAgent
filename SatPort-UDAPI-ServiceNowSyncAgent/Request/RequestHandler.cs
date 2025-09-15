@@ -8,20 +8,20 @@
 
 	public abstract class RequestHandler
 	{
+		protected readonly ApiTriggerInput requestData;
 		private readonly TicketingApiHelper helper;
-		protected readonly string request;
 
-		protected RequestHandler(TicketingApiHelper helper, string request)
+		protected RequestHandler(TicketingApiHelper helper, ApiTriggerInput requestData)
 		{
 			this.helper = helper;
-			this.request = request;
+			this.requestData = requestData;
 		}
 
 		public abstract string IncidentId { get; protected set; }
 
 		public abstract RequestMethod Method { get; }
 
-		protected string Request => request;
+		protected ApiTriggerInput RequestData => requestData;
 
 		protected TicketingApiHelper Helper => helper;
 
@@ -31,7 +31,7 @@
 			switch (requestData.RequestMethod)
 			{
 				case RequestMethod.Post:
-					return new UpdateTicketRequestHandler(ticketingHelper, requestData.RawBody);
+					return new UpdateTicketRequestHandler(ticketingHelper, requestData);
 
 				case RequestMethod.Unspecified:
 				case RequestMethod.Get:
@@ -47,7 +47,7 @@
 
 		public virtual bool ValidateRequest(out string reason, out StatusCode statusCode)
 		{
-			if (string.IsNullOrWhiteSpace(Request))
+			if (string.IsNullOrWhiteSpace(RequestData.RawBody))
 			{
 				reason = "The request body is empty";
 				statusCode = StatusCode.BadRequest;
