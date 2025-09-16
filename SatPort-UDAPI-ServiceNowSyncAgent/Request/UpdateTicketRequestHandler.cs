@@ -6,7 +6,6 @@
 	using Skyline.Automation.SatPort.DataModel;
 	using Skyline.DataMiner.Net.Apps.UserDefinableApis;
 	using Skyline.DataMiner.Net.Apps.UserDefinableApis.Actions;
-	using Skyline.DataMiner.Net.Helper;
 	using Skyline.DataMiner.Net.Messages.SLDataGateway;
 	using Skyline.DataMiner.SDM.Ticketing;
 	using Skyline.DataMiner.SDM.Ticketing.Models;
@@ -97,12 +96,8 @@
 			}
 			catch (Exception ex)
 			{
-				// TODO: In the end allow falling
-				//output.ResponseCode = (int)StatusCode.InternalServerError;
-				//output.ResponseBody = $"Internal Server Error: {ex}";
-
-				output.ResponseCode = (int)StatusCode.Ok;
-				output.ResponseBody = "Ticket updated successfully!!";
+				output.ResponseCode = (int)StatusCode.InternalServerError;
+				output.ResponseBody = $"Internal Server Error: {ex}";
 			}
 
 			return output;
